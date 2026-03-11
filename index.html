@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Your Mind Bubble Bubble</title>
+<style>
+@import url('https://cdn.jsdelivr.net/npm/galmuri@latest/dist/galmuri.css');
+
+:root {
+  /* ── Patterns (MAC-PAINT-PATTERNS) ── */
+  --pat-bg:      url('MAC-PAINT-PATTERNS/8.gif');
+  --pat-bubble:  url('MAC-PAINT-PATTERNS/3.gif');
+  --pat-sel:     url('MAC-PAINT-PATTERNS/1.gif');
+  --pat-conn:    url('MAC-PAINT-PATTERNS/5.gif');
+  --pat-toolbar: url('MAC-PAINT-PATTERNS/14.gif');
+  --pat-menu:    url('MAC-PAINT-PATTERNS/19.gif');
+  --pat-hover:   url('MAC-PAINT-PATTERNS/6.gif');
+
+  /* ── B&W palette ── */
+  --black: #000;
+  --white: #fff;
+  --gray1: #111;
+  --gray2: #333;
+  --gray3: #666;
+  --gray4: #999;
+  --gray5: #ccc;
+  --gray6: #eee;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent;
+    user-select:none; -webkit-user-select:none;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+
+body {
+  font-family: 'Galmuri9', 'Dotum';
+  background-color: var(--white);
+  background-image: var(--pat-bg);
+  background-repeat: repeat;
+  width:100vw; height:100vh; overflow:hidden;
+  user-select:none; -webkit-user-select:none;
+  -webkit-touch-callout:none;
+  touch-action:none;
+}
+
+#stage { position:fixed; inset:0; transform-origin:0 0; }
+
+/* ── Bubbles ── */
+.bwrap { position:absolute; transform-origin:50% 50%; z-index:2; }
+
+.bubble {
+  width:100%; height:100%; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  text-align:center; font-weight:800;
+  color: var(--black); cursor:pointer;
+  border: 2px solid var(--black);
+  background-color: var(--white);
+  background-image: var(--pat-bubble);
+  background-repeat: repeat;
+  box-shadow: 3px 3px 0 var(--black);
+  word-break:break-word; padding:14%; line-height:1.25;
+  position:relative; overflow:hidden; transition:box-shadow .12s;
+}
+.bubble::before { display:none; }
+.bubble::after  { display:none; }
+.bubble-text { position:relative; z-index:1; pointer-events:none;
+  background: rgba(255,255,255,0.9);
+  padding: 2px 5px;
+  white-space: pre-wrap;
+}
+
+.bubble.sel {
+  box-shadow: 0 0 0 3px var(--black), 4px 4px 0 var(--black);
+  background-image: var(--pat-sel);
+}
+.bubble.conn-src {
+  box-shadow: 0 0 0 3px var(--black), 4px 4px 0 var(--black);
+  background-image: var(--pat-conn);
+}
+.bubble-input {
+  position:absolute; inset:0; border-radius:50%; border:none; background:transparent;
+  text-align:center; font-family:'Galmuri9','Dotum'; font-weight:800;
+  color: var(--black); resize:none; outline:none;
+  padding:22% 14%; overflow:hidden; z-index:6; cursor:text; line-height:1.3;
+}
+
+/* ── Toolbar ── */
+#toolbar {
+  position:fixed;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index:1000; display:flex; gap:8px;
+  background-color: var(--white);
+  background-image: var(--pat-toolbar);
+  background-repeat: repeat;
+  border-radius: 0;
+  padding:9px 16px;
+  border: 2px solid var(--black);
+  box-shadow: 3px 3px 0 var(--black);
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  #toolbar {
+    gap:5px; padding:7px 10px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+}
+.tbtn {
+  width:44px; height:44px; border-radius:0; border: 1.5px solid var(--black); cursor:pointer; font-size:18px;
+  display:flex; align-items:center; justify-content:center;
+  background-color: var(--white);
+  background-image: none;
+  color: var(--black);
+  transition:all .12s;
+  position:relative; flex-shrink:0; user-select:none;
+  box-shadow: 2px 2px 0 var(--black);
+}
+@media (max-width: 480px) {
+  .tbtn { width:38px; height:38px; font-size:16px; }
+  .tsep { margin:4px 1px; }
+}
+.tbtn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--black);
+  background-image: var(--pat-hover);
+  background-repeat: repeat;
+}
+.tbtn:active { transform:translate(1px,1px); box-shadow:none; }
+.tbtn.on {
+  background-image: var(--pat-sel);
+  background-repeat: repeat;
+  box-shadow: inset 2px 2px 0 var(--black);
+  transform: translate(1px,1px);
+}
+.tsep { width:2px; background:var(--black); margin:5px 2px; align-self:stretch; }
+.tlabel {
+  position:absolute; bottom:52px; left:50%; transform:translateX(-50%);
+  background: var(--black); color: var(--white); font-size:11px; font-weight:800;
+  padding:3px 8px; border-radius:0; white-space:nowrap;
+  opacity:0; pointer-events:none; transition:opacity .12s;
+  border: 1px solid var(--black);
+}
+.tbtn:hover .tlabel { opacity:1; }
+
+/* ── Banner ── */
+#banner {
+  position:fixed; top:16px; left:50%; transform:translateX(-50%);
+  z-index:999; font-size:13px; font-weight:800; color: var(--white);
+  background: var(--black);
+  padding:6px 20px; border-radius:0;
+  border: 2px solid var(--black);
+  opacity:0; transition:opacity .25s; pointer-events:none;
+  white-space:nowrap; max-width:calc(100vw - 32px); text-align:center;
+}
+#banner.show { opacity:1; }
+
+/* ── Zoom badge ── */
+#zbadge {
+  position:fixed; top:16px; right:16px;
+  font-size:12px; font-weight:800; color: var(--black);
+  background: var(--white);
+  padding:5px 13px; border-radius:0;
+  border: 2px solid var(--black);
+  box-shadow: 2px 2px 0 var(--black);
+  z-index:999; pointer-events:none;
+}
+
+/* ── Hint ── */
+#hint {
+  position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+  flex-direction:column; gap:10px; color: var(--gray4);
+  font-size:15px; font-weight:800; pointer-events:none; z-index:0;
+  transition:opacity .5s; text-align:center; padding:20px;
+}
+#hint .big { font-size:52px; }
+
+
+
+/* ── Pop animations ── */
+@keyframes pop-in {
+  0%   { transform:translate(-50%,-50%) scale(0) rotate(-8deg); opacity:0; }
+  60%  { transform:translate(-50%,-50%) scale(1.14) rotate(2deg); }
+  80%  { transform:translate(-50%,-50%) scale(.96); }
+  100% { transform:translate(-50%,-50%) scale(1) rotate(0); opacity:1; }
+}
+@keyframes pop-out {
+  0%   { opacity:1; transform:translate(-50%,-50%) scale(1); }
+  30%  { transform:translate(-50%,-50%) scale(1.2); }
+  100% { transform:translate(-50%,-50%) scale(0); opacity:0; }
+}
+.bwrap.in  { animation:pop-in  .42s cubic-bezier(.34,1.56,.64,1) forwards; }
+.bwrap.out { animation:pop-out .32s ease-in forwards; pointer-events:none; }
+
+/* ── Ripple ── */
+.ripple {
+  position:fixed; border-radius:0; background: var(--black);
+  pointer-events:none; z-index:9999; animation:rpl .5s ease-out forwards;
+  opacity: .18;
+}
+@keyframes rpl { from{transform:scale(0);opacity:.18;} to{transform:scale(4);opacity:0;} }
+
+/* ── Context menus ── */
+.ctx-menu-base {
+  position:fixed; z-index:2000;
+  background-color: var(--white);
+  background-image: var(--pat-menu);
+  background-repeat: repeat;
+  border-radius:0; overflow:hidden;
+  border: 2px solid var(--black);
+  box-shadow: 3px 3px 0 var(--black);
+  display:none; flex-direction:column; min-width:148px;
+}
+.ctx-menu-base.show { display:flex; }
+
+.cmitem {
+  padding:12px 18px; font-size:14px; font-weight:800; color: var(--black);
+  cursor:pointer; display:flex; gap:10px; align-items:center; transition:background .1s;
+  border-bottom: 1px solid var(--gray5);
+  background-color: var(--white);
+  background-image: none;
+}
+.cmitem:last-child { border-bottom:none; }
+.cmitem:hover, .cmitem:active {
+  background-color: var(--black);
+  background-image: none;
+  color: var(--white);
+}
+.cmitem.danger { color: var(--black); }
+.cmitem.danger:hover, .cmitem.danger:active {
+  background-color: var(--black);
+  background-image: none;
+  color: var(--white);
+}
+</style>
+</head>
+<body>
+
+<div id="hint">
+  <span>Double Click Anywhere to Add a Bubble<br><small style="font-weight:700;opacity:.7">Right-click a Bubble → Menu / Right-click a Connection → Delete</small></span>
+</div>
+
+<!-- canvas은 stage 바깥 → stage transform 미적용, DOM 순서상 stage 앞에 위치해야 버블 아래에 렌더링 -->
+<canvas id="conn-canvas" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;"></canvas>
+
+<div id="stage"></div>
+
+<div id="zbadge">100%</div>
+<div id="banner"></div>
+
+<div id="toolbar">
+  <button class="tbtn" id="btn-add">➕<span class="tlabel">Add a Bubble</span></button>
+  <button class="tbtn" id="btn-connect">🔗<span class="tlabel">Connect Bubbles</span></button>
+  <div class="tsep"></div>
+  <button class="tbtn" id="btn-fit">⊡<span class="tlabel">Fit to View</span></button>
+  <div class="tsep"></div>
+  <button class="tbtn" id="btn-exp">💾<span class="tlabel">Save</span></button>
+  <button class="tbtn" id="btn-imp">📂<span class="tlabel">Load</span></button>
+  <input type="file" id="file-input" accept=".json" style="display:none">
+  <div class="tsep"></div>
+  <button class="tbtn" id="btn-clear">🗑️<span class="tlabel">Clear All</span></button>
+</div>
+
+<!-- 버블 컨텍스트 메뉴 -->
+<div id="ctx-menu" class="ctx-menu-base">
+  <div class="cmitem" id="cm-edit">✏️ Edit Text</div>
+  <div class="cmitem" id="cm-conn">🔗 Connect to Bubble</div>
+  <div class="cmitem danger" id="cm-del">🗑️ Delete Bubble</div>
+</div>
+
+<!-- 연결선 컨텍스트 메뉴 -->
+<div id="conn-menu" class="ctx-menu-base">
+  <div class="cmitem danger" id="cm-conn-del">✂️ Delete Connection</div>
+</div>
+
+<script>
+// 텍스트 선택 / 브라우저 기본 드래그 완전 차단 (Safari 대응)
+document.addEventListener('selectstart', e => {
+  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+  e.preventDefault();
+});
+document.addEventListener('dragstart', e => e.preventDefault());
+
+// ═══════════════════════════════════════
+// 상수
+// ═══════════════════════════════════════
+// Pattern-based bubble backgrounds: 1~36 랜덤 사용
+
+const FONT_SIZE   = 13;
+const LINE_H      = FONT_SIZE * 1.35;
+const MIN_R       = 44;
+const MAX_R       = 130;
+const SPRING_K    = 0.14;
+const SPRING_DAMP = 0.62;
+const RESIZE_EASE = 'width .22s cubic-bezier(.34,1.56,.64,1), height .22s cubic-bezier(.34,1.56,.64,1)';
+
+// ═══════════════════════════════════════
+// 상태
+// ═══════════════════════════════════════
+const S = {
+  nodes: [], conns: [], nid: 1,
+  nodeMap: new Map(),   // id → node (O(1) lookup)
+  adjMap:  new Map(),   // id → Set of neighbor ids (인접 리스트)
+  zoom: 1, ox: 0, oy: 0,
+  mode: 'normal',   // 'normal' | 'connect'
+  connSrc: null,
+  drag: null,       // { node, dx, dy }
+  pan: null,        // { sx, sy, ox, oy }
+  pinch: null,      // { dist, mx, my, oz, oox, ooy }
+  sel: null,
+  wobT: 0,
+  ctxNode: null,
+  ctxConn: null,
+};
+
+// ═══════════════════════════════════════
+// DOM 참조
+// ═══════════════════════════════════════
+const stage    = document.getElementById('stage');
+const canvas   = document.getElementById('conn-canvas');
+const ctx      = canvas.getContext('2d');
+const banner   = document.getElementById('banner');
+const zbadge   = document.getElementById('zbadge');
+const hint     = document.getElementById('hint');
+const ctxMenu  = document.getElementById('ctx-menu');
+const connMenu = document.getElementById('conn-menu');
+
+// ═══════════════════════════════════════
+// 유틸
+// ═══════════════════════════════════════
+const getEl   = id => S.nodeMap.get(id)?.el;
+const getNode = id => S.nodeMap.get(id);
+
+/** Safari visualViewport 보정: 브라우저 줌 시 clientX/Y 오차 제거 */
+function vpFix(cx, cy) {
+  if (!window.visualViewport) return { x: cx, y: cy };
+  return {
+    x: cx + window.visualViewport.offsetLeft,
+    y: cy + window.visualViewport.offsetTop,
+  };
+}
+
+/** 스크린 좌표 → 월드 좌표 변환 */
+function s2w(sx, sy) {
+  const p = vpFix(sx, sy);
+  return { x: (p.x - S.ox) / S.zoom, y: (p.y - S.oy) / S.zoom };
+}
+
+// ═══════════════════════════════════════
+// 연결선 dirty flag (resizeCanvas보다 먼저 선언)
+// ═══════════════════════════════════════
+let _connsDirty = true;
+let _lastZoom = -1, _lastOx = -1, _lastOy = -1;
+function markConnsDirty() { _connsDirty = true; }
+
+// ═══════════════════════════════════════
+// 캔버스
+// ═══════════════════════════════════════
+function getVW() {
+  const vv = window.visualViewport;
+  return (vv && Math.abs(vv.scale - 1) > 0.01) ? vv.width  : window.innerWidth;
+}
+function getVH() {
+  const vv = window.visualViewport;
+  return (vv && Math.abs(vv.scale - 1) > 0.01) ? vv.height : window.innerHeight;
+}
+
+function resizeCanvas() {
+  canvas.width  = getVW();
+  canvas.height = getVH();
+  markConnsDirty();
+}
+
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', resizeCanvas);
+  window.visualViewport.addEventListener('scroll', resizeCanvas);
+} else {
+  window.addEventListener('resize', resizeCanvas);
+}
+resizeCanvas();
+
+// ═══════════════════════════════════════
+// 변환 / 줌
+// ═══════════════════════════════════════
+function applyXform() {
+  stage.style.transform = `translate(${S.ox}px,${S.oy}px) scale(${S.zoom})`;
+  zbadge.textContent = Math.round(S.zoom * 100) + '%';
+}
+
+// ═══════════════════════════════════════
+// 연결선 렌더링
+// ═══════════════════════════════════════
+function drawConns() {
+  // 버블이 움직이거나 줌/팬 변화가 있을 때만 다시 그림
+  const moving = S.drag || S.pan || S.pinch ||
+    S.nodes.some(n => Math.abs(n.vx) > 0.05 || Math.abs(n.vy) > 0.05);
+  const xformChanged = S.zoom !== _lastZoom || S.ox !== _lastOx || S.oy !== _lastOy;
+
+  if (!moving && !xformChanged && !_connsDirty) return;
+
+  _lastZoom = S.zoom; _lastOx = S.ox; _lastOy = S.oy;
+  _connsDirty = false;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const { zoom: z, ox, oy } = S;
+
+  // 모든 연결선을 하나의 path로 묶어 stroke() 1회 호출
+  // (기존: 연결선 N개 → stroke() N번)
+  ctx.beginPath();
+  ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+
+  S.conns.forEach(c => {
+    const na = getNode(c.a), nb = getNode(c.b);
+    if (!na || !nb) return;
+
+    const ax = na.x * z + ox, ay = na.y * z + oy;
+    const bx = nb.x * z + ox, by = nb.y * z + oy;
+    const mx = (ax + bx) / 2, my = (ay + by) / 2 - 50 * z;
+
+    ctx.moveTo(ax, ay);
+    ctx.quadraticCurveTo(mx, my, bx, by);
+  });
+
+  ctx.stroke();
+}
+
+/** 연결선 히트 테스트 (world 좌표 기준)
+ *  1단계: AABB(축 정렬 경계 박스) 사전 기각 → 대부분의 연결선 즉시 skip
+ *  2단계: 적응형 step — 곡선 길이에 비례한 샘플 수로 균일한 정밀도 보장
+ */
+function hitTestConn(wx, wy, threshold = 12) {
+  const thSq = threshold * threshold; // 제곱 비교로 sqrt 호출 제거
+
+  for (let i = S.conns.length - 1; i >= 0; i--) {
+    const c = S.conns[i];
+    const na = getNode(c.a), nb = getNode(c.b);
+    if (!na || !nb) continue;
+
+    // ── 1단계: AABB 사전 기각 ──
+    const minX = Math.min(na.x, nb.x) - threshold;
+    const maxX = Math.max(na.x, nb.x) + threshold;
+    const minY = Math.min(na.y, nb.y) - threshold * 4; // 곡선 제어점 위로 올라가므로 여유
+    const maxY = Math.max(na.y, nb.y) + threshold;
+    if (wx < minX || wx > maxX || wy < minY || wy > maxY) continue;
+
+    // ── 2단계: 곡선 길이 추정 → 적응형 샘플 수 결정 ──
+    const mx = (na.x + nb.x) / 2, my = (na.y + nb.y) / 2 - 50;
+    const approxLen = Math.hypot(nb.x - na.x, nb.y - na.y);
+    const steps = Math.max(12, Math.min(40, Math.ceil(approxLen / 18)));
+    const dt = 1 / steps;
+
+    for (let t = 0; t <= 1; t += dt) {
+      const u = 1 - t;
+      const bx = u * u * na.x + 2 * u * t * mx + t * t * nb.x - wx;
+      const by = u * u * na.y + 2 * u * t * my + t * t * nb.y - wy;
+      if (bx * bx + by * by < thSq) return c.id;
+    }
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════
+// 물리 / 흔들림 루프
+// ═══════════════════════════════════════
+function wobbleLoop(ts) {
+  S.wobT = ts * 0.001;
+  const dragged = S.drag?.node ?? null;
+  const vw = getVW(), vh = getVH();
+
+  S.nodes.forEach(n => {
+    if (n === dragged) {
+      n.vx = 0; n.vy = 0;
+      n.tx = n.x; n.ty = n.y;
+    } else {
+      n.vx = (n.vx + (n.tx - n.x) * SPRING_K) * SPRING_DAMP;
+      n.vy = (n.vy + (n.ty - n.y) * SPRING_K) * SPRING_DAMP;
+
+      const spd = Math.hypot(n.vx, n.vy);
+      if (spd > 18) { n.vx = n.vx / spd * 18; n.vy = n.vy / spd * 18; }
+
+      n.x += n.vx;
+      n.y += n.vy;
+
+      if (!S.drag) { n.tx = n.x; n.ty = n.y; }
+    }
+
+    const el = n.el;
+    if (!el) return;
+
+    // ── 뷰포트 밖이면 wobble 스킵 (위치만 갱신) ──
+    const sx = n.x * S.zoom + S.ox;
+    const sy = n.y * S.zoom + S.oy;
+    const sr = n.r * S.zoom;
+    if (sx + sr < -60 || sx - sr > vw + 60 || sy + sr < -60 || sy - sr > vh + 60) {
+      // 뷰포트 밖에서도 wobble 위치 유지 → 안으로 들어올 때 자연스럽게 연결
+      const wobXo = Math.sin(S.wobT * n.sp + n.ph) * 2.2;
+      const wobYo = Math.cos(S.wobT * n.sp * .75 + n.ph) * 1.8;
+      el.style.left = (n.x + wobXo) + 'px';
+      el.style.top  = (n.y + wobYo) + 'px';
+      el.style.transform = 'translate(-50%,-50%)';
+      return;
+    }
+
+    const wobX = Math.sin(S.wobT * n.sp + n.ph) * 2.2;
+    const wobY = Math.cos(S.wobT * n.sp * .75 + n.ph) * 1.8;
+    const scX  = 1 + Math.sin(S.wobT * n.sp * 1.3 + n.ph) * .021;
+    const scY  = 1 + Math.cos(S.wobT * n.sp * .9  + n.ph) * .021;
+
+    // 옛 버전처럼 wobble 오프셋을 left/top에 직접 더해 부드러운 유영 효과 유지
+    el.style.left = (n.x + wobX) + 'px';
+    el.style.top  = (n.y + wobY) + 'px';
+    el.style.transform = `translate(-50%,-50%) scaleX(${scX}) scaleY(${scY})`;
+  });
+
+  drawConns();
+  requestAnimationFrame(wobbleLoop);
+}
+requestAnimationFrame(wobbleLoop);
+
+/** 드래그 시 연결된 이웃 노드를 BFS로 스프링 전파 */
+function propagateSpring(draggedNode, ddx, ddy) {
+  const visited  = new Set([draggedNode.id]);
+  let frontier   = [{ id: draggedNode.id, decay: 1.0 }];
+
+  draggedNode.tx = draggedNode.x;
+  draggedNode.ty = draggedNode.y;
+
+  while (frontier.length > 0) {
+    const next = [];
+    frontier.forEach(({ id, decay }) => {
+      const neighbors = S.adjMap.get(id);
+      if (!neighbors) return;
+      neighbors.forEach(peerId => {
+        if (visited.has(peerId)) return;
+        visited.add(peerId);
+        const peer = getNode(peerId);
+        if (!peer) return;
+        const newDecay = decay * 0.62;
+        peer.tx ??= peer.x;
+        peer.ty ??= peer.y;
+        peer.tx += ddx * newDecay;
+        peer.ty += ddy * newDecay;
+        next.push({ id: peerId, decay: newDecay });
+      });
+    });
+    frontier = next;
+  }
+}
+
+// ═══════════════════════════════════════
+// 버블 크기 계산
+// ═══════════════════════════════════════
+const _measureCtx = document.createElement('canvas').getContext('2d');
+const _radiusCache = new Map();
+
+/** r이 주어진 텍스트를 담기에 충분한지 판별 */
+function _radiusFits(r, text) {
+  const box = r * 1.18;
+  const lines = [];
+  for (const hard of text.split('\n')) {
+    const words = hard.trim().split(/\s+/).filter(Boolean);
+    if (!words.length) { lines.push(''); continue; }
+    let cur = '';
+    for (const w of words) {
+      const test = cur ? cur + ' ' + w : w;
+      if (_measureCtx.measureText(test).width > box) {
+        if (cur) lines.push(cur);
+        cur = w;
+      } else {
+        cur = test;
+      }
+    }
+    if (cur) lines.push(cur);
+  }
+  if (!lines.length) lines.push(' ');
+  const totalH = lines.length * LINE_H;
+  const maxW   = Math.max(...lines.map(l => _measureCtx.measureText(l).width));
+  return maxW <= box && totalH <= box;
+}
+
+function calcRadius(text) {
+  if (_radiusCache.has(text)) return _radiusCache.get(text);
+
+  _measureCtx.font = `800 ${FONT_SIZE}px Galmuri9, 'Dotum'`;
+
+  // 이진 탐색: 최대 ~7회 비교로 최솟값 결정 (기존 brute-force 최대 86회 대비)
+  let lo = MIN_R, hi = MAX_R, result = MAX_R;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (_radiusFits(mid, text)) { result = mid; hi = mid - 1; }
+    else lo = mid + 1;
+  }
+
+  _radiusCache.set(text, result);
+  return result;
+}
+
+function resizeBubble(n) {
+  const newR = calcRadius(n.text);
+  if (Math.abs(newR - n.r) < 1) return;
+  n.r = newR;
+  const wrap = getEl(n.id);
+  if (!wrap) return;
+  const d = newR * 2;
+  wrap.style.transition = RESIZE_EASE;
+  wrap.style.width = wrap.style.height = d + 'px';
+  // transitionend 이벤트로 transition 초기화 — setTimeout 타이밍 경쟁 방지
+  wrap.addEventListener('transitionend', () => {
+    wrap.style.transition = '';
+  }, { once: true });
+}
+
+// ═══════════════════════════════════════
+// 노드
+// ═══════════════════════════════════════
+function addNode(x, y, text = 'Idea') {
+  const n = {
+    id: S.nid++, x, y,
+    r: calcRadius(text),
+    text,
+    ph: Math.random() * Math.PI * 2,
+    sp: .55 + Math.random() * .6,
+    vx: 0, vy: 0, tx: x, ty: y,
+    el: null,
+  };
+  S.nodes.push(n);
+  S.nodeMap.set(n.id, n);
+  S.adjMap.set(n.id, new Set());
+  makeBubbleEl(n);
+  hint.style.opacity = '0';
+  return n;
+}
+
+function makeBubbleEl(n) {
+  const wrap = document.createElement('div');
+  wrap.className = 'bwrap in';
+  wrap.id = 'bw' + n.id;
+  const d = n.r * 2;
+  wrap.style.cssText = `width:${d}px;height:${d}px;left:${n.x}px;top:${n.y}px;will-change:transform`;
+  n.el = wrap;   // ← DOM 참조 캐시
+
+  const bub = document.createElement('div');
+  bub.className = 'bubble';
+  if (!n.patUrl) {
+    n.patUrl = `MAC-PAINT-PATTERNS/${Math.ceil(Math.random() * 36)}.gif`;
+  }
+  bub.style.backgroundImage = `url('${n.patUrl}')`;
+  bub.style.backgroundRepeat = 'repeat';
+  bub.style.backgroundColor = '#fff';
+  bub.style.borderColor = '#000';
+  bub.style.fontSize    = FONT_SIZE + 'px';
+
+  const txt = document.createElement('div');
+  txt.className = 'bubble-text';
+  txt.textContent = n.text;
+
+  bub.appendChild(txt);
+  wrap.appendChild(bub);
+  stage.appendChild(wrap);
+  setTimeout(() => wrap.classList.remove('in'), 480);
+
+  // ── 이벤트 ──
+  let pDownTime = 0, longTimer = null, moved = false, lastTap = 0;
+
+  wrap.addEventListener('pointerdown', e => {
+    if (e.button === 2) return;
+    e.stopPropagation();
+    wrap.setPointerCapture(e.pointerId);
+    pDownTime = Date.now();
+    moved = false;
+
+    if (S.mode === 'connect') { handleConnClick(n); return; }
+
+    S.sel = n.id; renderSel();
+    const wp = s2w(e.clientX, e.clientY);
+    S.drag = { node: n, dx: wp.x - n.x, dy: wp.y - n.y };
+
+    longTimer = setTimeout(() => {
+      if (!moved) { S.drag = null; showCtxMenu(n, e.clientX, e.clientY); }
+    }, 500);
+  }, { passive: false });
+
+  wrap.addEventListener('pointermove', e => {
+    if (!S.drag || S.drag.node !== n) return;
+    moved = true;
+    clearTimeout(longTimer);
+    const wp  = s2w(e.clientX, e.clientY);
+    const newX = wp.x - S.drag.dx, newY = wp.y - S.drag.dy;
+    const ddx  = newX - n.x,       ddy  = newY - n.y;
+
+    n.x = newX; n.y = newY;
+
+    if (n.el) { n.el.style.left = n.x + 'px'; n.el.style.top = n.y + 'px'; }
+    propagateSpring(n, ddx, ddy);
+  }, { passive: false });
+
+  wrap.addEventListener('pointerup', () => {
+    clearTimeout(longTimer);
+    if (S.drag?.node === n) {
+      S.nodes.forEach(nd => { nd.vx = 0; nd.vy = 0; nd.tx = nd.x; nd.ty = nd.y; });
+      S.drag = null;
+    }
+    if (!moved && Date.now() - pDownTime < 320 && S.mode === 'normal') {
+      const now = Date.now();
+      if (now - lastTap < 380) { startEdit(n, bub, txt); lastTap = 0; }
+      else lastTap = now;
+    }
+  });
+
+  wrap.addEventListener('dblclick', e => {
+    e.stopPropagation();
+    if (e.pointerType === 'touch') return;
+    if (S.mode === 'normal') startEdit(n, bub, txt);
+  });
+
+  wrap.addEventListener('contextmenu', e => {
+    e.preventDefault(); e.stopPropagation();
+    showCtxMenu(n, e.clientX, e.clientY);
+  });
+}
+
+function deleteNode(id) {
+  const wrap = getEl(id);
+  if (wrap) { wrap.classList.add('out'); setTimeout(() => wrap.remove(), 360); }
+  // _prevSelEl이 삭제되는 노드를 가리키고 있으면 정리
+  if (_prevSelEl && wrap?.contains(_prevSelEl)) _prevSelEl = null;
+  // 드래그 중인 노드가 삭제되면 drag 상태 정리
+  if (S.drag?.node?.id === id) S.drag = null;
+  // connect 모드에서 source 노드가 삭제되면 connSrc 정리
+  if (S.connSrc === id) { S.connSrc = null; }
+  S.nodes = S.nodes.filter(n => n.id !== id);
+  S.nodeMap.delete(id);
+  // 인접 리스트에서 이 노드와 관련된 엣지 제거
+  S.adjMap.delete(id);
+  S.adjMap.forEach(set => set.delete(id));
+  S.conns = S.conns.filter(c => c.a !== id && c.b !== id);
+  if (S.sel === id) S.sel = null;
+  markConnsDirty();
+}
+
+let _prevSelEl = null;
+function renderSel() {
+  if (_prevSelEl) { _prevSelEl.classList.remove('sel'); _prevSelEl = null; }
+  if (S.sel) {
+    const el = getEl(S.sel)?.querySelector('.bubble');
+    if (el) { el.classList.add('sel'); _prevSelEl = el; }
+  }
+}
+
+// ═══════════════════════════════════════
+// 편집
+// ═══════════════════════════════════════
+function startEdit(n, bub, txt) {
+  if (bub.querySelector('.bubble-input')) return;
+  txt.style.display = 'none';
+
+  const inp = document.createElement('textarea');
+  inp.className = 'bubble-input';
+  inp.value = n.text;
+  inp.style.fontSize = FONT_SIZE + 'px';
+  // 입력 중 글씨가 잘 보이도록 패턴 배경 위에 흰색 배경 오버레이
+  inp.style.background = 'rgba(255,255,255,0.82)';
+  bub.appendChild(inp);
+  requestAnimationFrame(() => { inp.focus(); inp.select(); });
+
+  inp.addEventListener('input', () => {
+    const newR = calcRadius(inp.value || ' ');
+    if (Math.abs(newR - n.r) >= 1) {
+      n.r = newR;
+      const wrap = getEl(n.id);
+      if (wrap) wrap.style.width = wrap.style.height = (newR * 2) + 'px';
+    }
+  });
+
+  let _done = false;
+  const done = () => {
+    if (_done) return;
+    _done = true;
+    const v = inp.value.trim();
+    if (v) n.text = v;
+    txt.textContent = n.text;
+    txt.style.display = '';
+    inp.remove();
+    resizeBubble(n);
+  };
+
+  inp.addEventListener('blur', done);
+  inp.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); done(); }
+    if (e.key === 'Escape') done();
+  });
+}
+
+// ═══════════════════════════════════════
+// 연결 모드
+// ═══════════════════════════════════════
+function handleConnClick(n) {
+  if (!S.connSrc) {
+    S.connSrc = n.id;
+    getEl(n.id)?.querySelector('.bubble').classList.add('conn-src');
+    showBanner('🔗 Click Another Bubble to Connect');
+  } else if (S.connSrc === n.id) {
+    getEl(n.id)?.querySelector('.bubble').classList.remove('conn-src');
+    S.connSrc = null;
+    showBanner('🫧 Click the First Bubble to Connect');
+  } else {
+    const dup = S.conns.find(c =>
+      (c.a === S.connSrc && c.b === n.id) || (c.a === n.id && c.b === S.connSrc)
+    );
+    if (!dup) {
+      addConn(S.connSrc, n.id);
+    }
+    getEl(S.connSrc)?.querySelector('.bubble').classList.remove('conn-src');
+    S.connSrc = null;
+    sparkAt(n.x, n.y);
+    showBanner('🫧 Click the First Bubble to Connect');
+  }
+}
+
+// ═══════════════════════════════════════
+// 컨텍스트 메뉴
+// ═══════════════════════════════════════
+function showCtxMenu(n, cx, cy) {
+  S.ctxNode = n;
+  hideConnMenu();
+  ctxMenu.classList.add('show');
+  ctxMenu.style.left = Math.min(cx, getVW()  - 160) + 'px';
+  ctxMenu.style.top  = Math.min(cy, getVH() - 140) + 'px';
+}
+function hideCtxMenu()  { ctxMenu.classList.remove('show'); S.ctxNode = null; }
+
+function showConnMenu(cid, cx, cy) {
+  S.ctxConn = cid;
+  hideCtxMenu();
+  connMenu.classList.add('show');
+  connMenu.style.left = Math.min(cx, getVW()  - 160) + 'px';
+  connMenu.style.top  = Math.min(cy, getVH() - 60)  + 'px';
+}
+function hideConnMenu() { connMenu.classList.remove('show'); S.ctxConn = null; }
+
+document.getElementById('cm-edit').addEventListener('click', () => {
+  if (!S.ctxNode) return;
+  const n = S.ctxNode; hideCtxMenu();
+  startEditNode(n);
+});
+
+document.getElementById('cm-conn').addEventListener('click', () => {
+  if (!S.ctxNode) return;
+  const n = S.ctxNode; hideCtxMenu();
+  setMode('connect');
+  handleConnClick(n);
+});
+
+document.getElementById('cm-del').addEventListener('click', () => {
+  if (!S.ctxNode) return;
+  sparkAt(S.ctxNode.x, S.ctxNode.y);
+  deleteNode(S.ctxNode.id);
+  hideCtxMenu();
+});
+
+document.getElementById('cm-conn-del').addEventListener('click', () => {
+  if (S.ctxConn === null) return;
+  const c = S.conns.find(x => x.id === S.ctxConn);
+  if (c) {
+    const na = getNode(c.a), nb = getNode(c.b);
+    if (na && nb) sparkAt((na.x + nb.x) / 2, (na.y + nb.y) / 2);
+    // adjMap에서도 양방향 제거
+    S.adjMap.get(c.a)?.delete(c.b);
+    S.adjMap.get(c.b)?.delete(c.a);
+  }
+  S.conns = S.conns.filter(x => x.id !== S.ctxConn);
+  markConnsDirty();
+  hideConnMenu();
+});
+
+// 메뉴 외부 클릭 → 닫기
+document.addEventListener('pointerdown', e => {
+  if (!ctxMenu.contains(e.target))  hideCtxMenu();
+  if (!connMenu.contains(e.target)) hideConnMenu();
+}, { passive: true });
+
+// 우클릭 → 연결선 히트 테스트
+window.addEventListener('contextmenu', e => {
+  if (e.target.closest('.bwrap')) return;
+  e.preventDefault();
+  const wp  = s2w(e.clientX, e.clientY);
+  const cid = hitTestConn(wp.x, wp.y, 14 / S.zoom);
+  if (cid !== null) showConnMenu(cid, e.clientX, e.clientY);
+});
+
+// ═══════════════════════════════════════
+// 스테이지 팬 / 핀치
+// ═══════════════════════════════════════
+const activePtr = new Map();
+
+stage.addEventListener('pointerdown', e => {
+  activePtr.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const ptrs = [...activePtr.values()];
+
+  if (ptrs.length === 1) {
+    if (!e.target.closest('.bwrap')) {
+      stage.setPointerCapture(e.pointerId);
+      S.pan = { sx: e.clientX, sy: e.clientY, ox: S.ox, oy: S.oy };
+      S.sel = null; renderSel();
+    }
+  } else if (ptrs.length === 2) {
+    S.pan = null;
+    const dist = Math.hypot(ptrs[1].x - ptrs[0].x, ptrs[1].y - ptrs[0].y);
+    const mx = (ptrs[0].x + ptrs[1].x) / 2, my = (ptrs[0].y + ptrs[1].y) / 2;
+    S.pinch = { dist, mx, my, oz: S.zoom, oox: S.ox, ooy: S.oy };
+  }
+}, { passive: true });
+
+stage.addEventListener('pointermove', e => {
+  if (activePtr.has(e.pointerId)) activePtr.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const ptrs = [...activePtr.values()];
+
+  if (ptrs.length >= 2 && S.pinch) {
+    const dist = Math.hypot(ptrs[1].x - ptrs[0].x, ptrs[1].y - ptrs[0].y);
+    const newZ  = Math.min(4, Math.max(.15, S.pinch.oz * (dist / S.pinch.dist)));
+    S.ox   = S.pinch.mx - (S.pinch.mx - S.pinch.oox) * (newZ / S.pinch.oz);
+    S.oy   = S.pinch.my - (S.pinch.my - S.pinch.ooy) * (newZ / S.pinch.oz);
+    S.zoom = newZ; applyXform();
+    return;
+  }
+  if (S.pan && !S.drag) {
+    S.ox = S.pan.ox + (e.clientX - S.pan.sx);
+    S.oy = S.pan.oy + (e.clientY - S.pan.sy);
+    applyXform();
+  }
+}, { passive: true });
+
+function endPtr(e) {
+  const wasPinching = S.pinch !== null;
+  activePtr.delete(e.pointerId);
+  if (activePtr.size < 2) S.pinch = null;
+  if (activePtr.size === 0) S.pan = null;
+  if (wasPinching && activePtr.size < 2) triggerSharpness();
+}
+stage.addEventListener('pointerup',     endPtr, { passive: true });
+stage.addEventListener('pointercancel', endPtr, { passive: true });
+
+// 줌 후 브라우저 강제 리페인트로 선명도 복구
+function triggerSharpness() {
+  stage.style.display = 'none';
+  stage.offsetHeight; // reflow 강제
+  stage.style.display = '';
+}
+let _wheelSharpTimer = null;
+
+// ── 배경 더블클릭 → 버블 추가 (터치는 pointerup에서 처리) ──
+stage.addEventListener('dblclick', e => {
+  if (e.pointerType === 'touch') return;
+  if (e.target.closest('.bwrap') || e.target.closest('#ctx-menu') || e.target.closest('#conn-menu')) return;
+  doAddAtScreen(e.clientX, e.clientY);
+});
+
+// ── 모바일 더블탭 ──
+let lastBgTap = 0, lastBgX = 0, lastBgY = 0;
+stage.addEventListener('pointerup', e => {
+  if (e.pointerType !== 'touch') return;
+  if (e.target.closest('.bwrap') || e.target.closest('#ctx-menu') || e.target.closest('#conn-menu')) return;
+  const now = Date.now();
+  if (!S.pan && Math.hypot(e.clientX - lastBgX, e.clientY - lastBgY) < 12 && now - lastBgTap < 380 && lastBgTap > 0) {
+    doAddAtScreen(e.clientX, e.clientY); lastBgTap = 0;
+  } else {
+    lastBgTap = now; lastBgX = e.clientX; lastBgY = e.clientY;
+  }
+}, { passive: true });
+
+function doAddAtScreen(cx, cy) {
+  const wp = s2w(cx, cy);
+  const n  = addNode(wp.x, wp.y);
+  rippleAt(cx, cy);
+  setTimeout(() => startEditNode(n), 200);
+}
+
+function startEditNode(n) {
+  const bub = getEl(n.id)?.querySelector('.bubble');
+  const txt = bub?.querySelector('.bubble-text');
+  if (bub && txt) startEdit(n, bub, txt);
+}
+
+// ── 모바일 배경 롱프레스 → 연결선 삭제 ──
+let bgLongTimer = null, bgLongX = 0, bgLongY = 0;
+stage.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'touch' || e.target.closest('.bwrap')) return;
+  bgLongX = e.clientX; bgLongY = e.clientY;
+  bgLongTimer = setTimeout(() => {
+    const wp  = s2w(bgLongX, bgLongY);
+    const cid = hitTestConn(wp.x, wp.y, 22 / S.zoom);
+    if (cid !== null) showConnMenu(cid, bgLongX, bgLongY);
+  }, 500);
+}, { passive: true });
+
+const clearBgLong = () => { clearTimeout(bgLongTimer); bgLongTimer = null; };
+stage.addEventListener('pointermove', e => {
+  if (bgLongTimer && Math.hypot(e.clientX - bgLongX, e.clientY - bgLongY) > 8) clearBgLong();
+}, { passive: true });
+stage.addEventListener('pointerup',     clearBgLong, { passive: true });
+stage.addEventListener('pointercancel', clearBgLong, { passive: true });
+
+// ── 휠 줌 ──
+window.addEventListener('wheel', e => {
+  e.preventDefault();
+  const f    = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+  const newZ = Math.min(4, Math.max(.15, S.zoom * f));
+  S.ox   = e.clientX - (e.clientX - S.ox) * (newZ / S.zoom);
+  S.oy   = e.clientY - (e.clientY - S.oy) * (newZ / S.zoom);
+  S.zoom = newZ; applyXform();
+  clearTimeout(_wheelSharpTimer);
+  _wheelSharpTimer = setTimeout(triggerSharpness, 150);
+}, { passive: false });
+
+// ── 키보드 ──
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { setMode('normal'); hideCtxMenu(); hideConnMenu(); return; }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && S.sel) {
+    const el = document.activeElement;
+    if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') return;
+    const n = getNode(S.sel);
+    if (n) sparkAt(n.x, n.y);
+    deleteNode(S.sel);
+    S.sel = null;
+  }
+});
+
+// ═══════════════════════════════════════
+// 모드
+// ═══════════════════════════════════════
+function setMode(m) {
+  S.mode = m; S.connSrc = null;
+  S.nodeMap.forEach(n => n.el?.querySelector('.bubble')?.classList.remove('conn-src'));
+  document.querySelectorAll('.tbtn').forEach(b => b.classList.remove('on'));
+  if (m === 'connect') {
+    document.getElementById('btn-connect').classList.add('on');
+    showBanner('🫧 Click the First Bubble to Connect');
+  } else {
+    banner.classList.remove('show');
+  }
+}
+function showBanner(t) { banner.textContent = t; banner.classList.add('show'); }
+
+// ═══════════════════════════════════════
+// 이펙트
+// ═══════════════════════════════════════
+function makeRipple(x, y, size, opacity = .18) {
+  const r = document.createElement('div');
+  r.className = 'ripple';
+  r.style.cssText = `width:${size}px;height:${size}px;left:${x - size/2}px;top:${y - size/2}px;background:rgba(0,0,0,${opacity})`;
+  document.body.appendChild(r);
+  setTimeout(() => r.remove(), 700);
+}
+
+function rippleAt(sx, sy) {
+  makeRipple(sx, sy, 44);
+}
+
+function sparkAt(wx, wy) {
+  const sx = wx * S.zoom + S.ox, sy = wy * S.zoom + S.oy;
+  for (let i = 0; i < 5; i++)
+    setTimeout(() => makeRipple(
+      sx + (Math.random() - .5) * 52,
+      sy + (Math.random() - .5) * 52,
+      28 + Math.random() * 32,
+      .15 + Math.random() * .15
+    ), i * 55);
+}
+
+// ═══════════════════════════════════════
+// 툴바
+// ═══════════════════════════════════════
+document.getElementById('btn-add').addEventListener('click', () => {
+  const cx = getVW()  / 2 + (Math.random() - .5) * 180;
+  const cy = getVH() / 2 + (Math.random() - .5) * 180;
+  doAddAtScreen(cx, cy);
+});
+
+document.getElementById('btn-connect').addEventListener('click', () =>
+  setMode(S.mode === 'connect' ? 'normal' : 'connect')
+);
+
+document.getElementById('btn-fit').addEventListener('click', () => {
+  if (!S.nodes.length) return;
+  const xs = S.nodes.map(n => n.x), ys = S.nodes.map(n => n.y);
+  const pad = 90;
+  const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad;
+  const minY = Math.min(...ys) - pad, maxY = Math.max(...ys) + pad;
+  const w = maxX - minX, h = maxY - minY;
+  const z = Math.min(getVW() / w, getVH() / h, 2) * .88;
+  S.zoom = z;
+  S.ox = (getVW()  - w * z) / 2 - minX * z;
+  S.oy = (getVH() - h * z) / 2 - minY * z;
+  applyXform();
+});
+
+document.getElementById('btn-exp').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify({ nodes: S.nodes, conns: S.conns, nid: S.nid }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `bubblemap_${Date.now()}.json`;
+  a.click();
+  const c = s2w(getVW() / 2, getVH() / 2);
+  sparkAt(c.x, c.y);
+});
+
+document.getElementById('btn-imp').addEventListener('click', () =>
+  document.getElementById('file-input').click()
+);
+
+document.getElementById('file-input').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      S.nodes.forEach(n => getEl(n.id)?.remove());
+      Object.assign(S, { nodes: [], conns: [], sel: null, drag: null, connSrc: null });
+      S.nodeMap.clear();
+      S.adjMap.clear();
+      _prevSelEl = null;
+      S.nid = data.nid || 1;
+
+      (data.nodes || []).forEach(raw => {
+        const n = {
+          id:    raw.id,
+          x:     raw.x,     y:    raw.y,
+          r:     raw.r || 52,
+          text:  raw.text || '',
+          ph:    raw.ph  ?? Math.random() * Math.PI * 2,
+          sp:    raw.sp  ?? .55 + Math.random() * .6,
+          vx: 0, vy: 0, tx: raw.x, ty: raw.y,
+          el: null,
+        };
+        S.nodes.push(n);
+        S.nodeMap.set(n.id, n);
+        S.adjMap.set(n.id, new Set());
+        makeBubbleEl(n);
+        resizeBubble(n);
+      });
+
+      S.conns = (data.conns || []).map(c => ({ id: c.id, a: c.a, b: c.b }));
+      S.conns.forEach(c => {
+        S.adjMap.get(c.a)?.add(c.b);
+        S.adjMap.get(c.b)?.add(c.a);
+      });
+      markConnsDirty();
+      hint.style.opacity = '0';
+      document.getElementById('btn-fit').click();
+    } catch (err) {
+      alert('Could not import the file. The format may be incorrect.');
+      console.error(err);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+document.getElementById('btn-clear').addEventListener('click', () => {
+  if (!S.nodes.length || !confirm('Are you sure you want to delete the entire mind map?')) return;
+  const ids = S.nodes.map(n => n.id);
+  ids.forEach(id => getEl(id)?.classList.add('out'));
+  setTimeout(() => {
+    ids.forEach(id => getEl(id)?.remove());
+    Object.assign(S, { nodes: [], conns: [], sel: null, drag: null, connSrc: null });
+    S.nodeMap.clear();
+    S.adjMap.clear();
+    _prevSelEl = null;
+    markConnsDirty();
+    hint.style.opacity = '1';
+  }, 380);
+});
+
+// ═══════════════════════════════════════
+// 초기화
+// ═══════════════════════════════════════
+function addConn(a, b) {
+  S.conns.push({ id: S.nid++, a, b });
+  S.adjMap.get(a)?.add(b);
+  S.adjMap.get(b)?.add(a);
+  markConnsDirty();
+}
+
+applyXform();
+setTimeout(() => {
+  const c    = s2w(getVW() / 2, getVH() / 2);
+  const root = addNode(c.x, c.y, 'My Ideas 🌟');
+  const offsets = [[-200,-130],[200,-110],[-215,120],[200,115],[0,-200]];
+  const labels  = ['Goals 🎯','Ideas 💡','Plans 📋','Inspiration ✨','Notes 📝'];
+  offsets.forEach(([dx, dy], i) => setTimeout(() => {
+    const n = addNode(c.x + dx, c.y + dy, labels[i]);
+    addConn(root.id, n.id);
+  }, (i + 1) * 180));
+}, 300);
+</script>
+</body>
+</html>
+
