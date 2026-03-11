@@ -900,13 +900,16 @@ window.addEventListener('contextmenu', e => {
 // ═══════════════════════════════════════
 const activePtr = new Map();
 
-stage.addEventListener('pointerdown', e => {
+// pointerdown: document 전체에서 받아야 stage transform 히트영역 제한 우회 가능
+document.addEventListener('pointerdown', e => {
+  // 툴바·메뉴 등 UI 요소는 무시
+  if (e.target.closest('#toolbar,#ctx-menu,#conn-menu,#zbadge,#banner,#hint')) return;
+
   activePtr.set(e.pointerId, { x: e.clientX, y: e.clientY });
   const ptrs = [...activePtr.values()];
 
   if (ptrs.length === 1) {
     if (!e.target.closest('.bwrap')) {
-      stage.setPointerCapture(e.pointerId);
       S.pan = { sx: e.clientX, sy: e.clientY, ox: S.ox, oy: S.oy };
       S.sel = null; renderSel();
     }
@@ -918,8 +921,10 @@ stage.addEventListener('pointerdown', e => {
   }
 }, { passive: true });
 
-stage.addEventListener('pointermove', e => {
-  if (activePtr.has(e.pointerId)) activePtr.set(e.pointerId, { x: e.clientX, y: e.clientY });
+// pointermove: document 레벨에서 받아야 포인터가 어디 있든 핀치/팬 추적 가능
+document.addEventListener('pointermove', e => {
+  if (!activePtr.has(e.pointerId)) return;
+  activePtr.set(e.pointerId, { x: e.clientX, y: e.clientY });
   const ptrs = [...activePtr.values()];
 
   if (ptrs.length >= 2 && S.pinch) {
@@ -944,8 +949,8 @@ function endPtr(e) {
   if (activePtr.size === 0) S.pan = null;
   if (wasPinching && activePtr.size < 2) triggerSharpness();
 }
-stage.addEventListener('pointerup',     endPtr, { passive: true });
-stage.addEventListener('pointercancel', endPtr, { passive: true });
+document.addEventListener('pointerup',     endPtr, { passive: true });
+document.addEventListener('pointercancel', endPtr, { passive: true });
 
 // 줌 후 브라우저 강제 리페인트로 선명도 복구
 function triggerSharpness() {
