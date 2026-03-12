@@ -171,6 +171,19 @@ body {
   z-index:999; pointer-events:none;
 }
 
+/* ── Save badge ── */
+#savebadge {
+  position:fixed; top:16px; left:16px;
+  font-size:11px; font-weight:800; color: var(--black);
+  background: var(--white);
+  padding:5px 11px; border-radius:0;
+  border: 2px solid var(--black);
+  box-shadow: 2px 2px 0 var(--black);
+  z-index:999; pointer-events:none;
+  opacity:0; transition: opacity .3s;
+}
+#savebadge.show { opacity:1; }
+
 /* ── Hint ── */
 #hint {
   position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
@@ -251,6 +264,7 @@ body {
 <div id="stage"></div>
 
 <div id="zbadge">100%</div>
+<div id="savebadge">💾 Saved</div>
 <div id="banner"></div>
 
 <div id="toolbar">
@@ -328,9 +342,75 @@ const canvas   = document.getElementById('conn-canvas');
 const ctx      = canvas.getContext('2d');
 const banner   = document.getElementById('banner');
 const zbadge   = document.getElementById('zbadge');
+const savebadge = document.getElementById('savebadge');
 const hint     = document.getElementById('hint');
 const ctxMenu  = document.getElementById('ctx-menu');
 const connMenu = document.getElementById('conn-menu');
+
+// ═══════════════════════════════════════
+// 자동저장 (localStorage)
+// ═══════════════════════════════════════
+const STORAGE_KEY = 'bubblemap_autosave';
+let _saveTimer = null;
+let _saveBadgeTimer = null;
+
+// 공통 직렬화/역직렬화 — 저장·내보내기·공유 모두 동일 포맷 사용
+function serialize() {
+  return {
+    nodes: S.nodes.map(n => ({ id: n.id, x: Math.round(n.x), y: Math.round(n.y), text: n.text })),
+    conns: S.conns.map(c => ({ a: c.a, b: c.b })),
+    nid: S.nid,
+  };
+}
+
+function deserialize(data) {
+  S.nodes.forEach(n => getEl(n.id)?.remove());
+  Object.assign(S, { nodes: [], conns: [], sel: null, drag: null, connSrc: null });
+  S.nodeMap.clear(); S.adjMap.clear(); _prevSelEl = null;
+
+  S.nid = data.nid || 1;
+  data.nodes.forEach(raw => {
+    const n = { id: raw.id, x: raw.x, y: raw.y, text: raw.text,
+      r: calcRadius(raw.text), ph: Math.random() * Math.PI * 2,
+      sp: .55 + Math.random() * .6, vx: 0, vy: 0, tx: raw.x, ty: raw.y, el: null };
+    S.nodes.push(n); S.nodeMap.set(n.id, n); S.adjMap.set(n.id, new Set());
+    makeBubbleEl(n); resizeBubble(n);
+  });
+  S.conns = data.conns.map(c => ({ id: S.nid++, a: c.a, b: c.b }));
+  S.conns.forEach(c => { S.adjMap.get(c.a)?.add(c.b); S.adjMap.get(c.b)?.add(c.a); });
+  markConnsDirty();
+  hint.style.opacity = '0';
+}
+
+function saveToLocal() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize()));
+    showSaveBadge();
+  } catch(e) { console.warn('autosave failed', e); }
+}
+
+function scheduleSave() {
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(saveToLocal, 800);
+}
+
+function showSaveBadge() {
+  const t = new Date();
+  savebadge.textContent = `💾 ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')} Auto-saved`;
+  savebadge.classList.add('show');
+  clearTimeout(_saveBadgeTimer);
+  _saveBadgeTimer = setTimeout(() => savebadge.classList.remove('show'), 2500);
+}
+
+function loadFromLocal() {
+  try {
+    const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (!data?.nodes?.length) return false;
+    deserialize(data);
+    document.getElementById('btn-fit').click();
+    return true;
+  } catch(e) { return false; }
+}
 
 // ═══════════════════════════════════════
 // 유틸
@@ -637,6 +717,7 @@ function addNode(x, y, text = 'Idea') {
   S.adjMap.set(n.id, new Set());
   makeBubbleEl(n);
   hint.style.opacity = '0';
+  scheduleSave();
   return n;
 }
 
@@ -708,6 +789,7 @@ function makeBubbleEl(n) {
     if (S.drag?.node === n) {
       S.nodes.forEach(nd => { nd.vx = 0; nd.vy = 0; nd.tx = nd.x; nd.ty = nd.y; });
       S.drag = null;
+      scheduleSave();
     }
     if (!moved && Date.now() - pDownTime < 320 && S.mode === 'normal') {
       const now = Date.now();
@@ -745,6 +827,7 @@ function deleteNode(id) {
   S.conns = S.conns.filter(c => c.a !== id && c.b !== id);
   if (S.sel === id) S.sel = null;
   markConnsDirty();
+  scheduleSave();
 }
 
 let _prevSelEl = null;
@@ -791,6 +874,7 @@ function startEdit(n, bub, txt) {
     txt.style.display = '';
     inp.remove();
     resizeBubble(n);
+    scheduleSave();
   };
 
   inp.addEventListener('blur', done);
@@ -881,6 +965,7 @@ document.getElementById('cm-conn-del').addEventListener('click', () => {
   S.conns = S.conns.filter(x => x.id !== S.ctxConn);
   markConnsDirty();
   hideConnMenu();
+  scheduleSave();
 });
 
 // 메뉴 외부 클릭 → 닫기
@@ -1110,13 +1195,12 @@ document.getElementById('btn-fit').addEventListener('click', () => {
 });
 
 document.getElementById('btn-exp').addEventListener('click', () => {
-  const blob = new Blob([JSON.stringify({ nodes: S.nodes, conns: S.conns, nid: S.nid }, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(serialize(), null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `bubblemap_${Date.now()}.json`;
   a.click();
-  const c = s2w(getVW() / 2, getVH() / 2);
-  sparkAt(c.x, c.y);
+  sparkAt(...Object.values(s2w(getVW() / 2, getVH() / 2)));
 });
 
 document.getElementById('btn-imp').addEventListener('click', () =>
@@ -1128,44 +1212,9 @@ document.getElementById('file-input').addEventListener('change', e => {
   const reader = new FileReader();
   reader.onload = ev => {
     try {
-      const data = JSON.parse(ev.target.result);
-      S.nodes.forEach(n => getEl(n.id)?.remove());
-      Object.assign(S, { nodes: [], conns: [], sel: null, drag: null, connSrc: null });
-      S.nodeMap.clear();
-      S.adjMap.clear();
-      _prevSelEl = null;
-      S.nid = data.nid || 1;
-
-      (data.nodes || []).forEach(raw => {
-        const n = {
-          id:    raw.id,
-          x:     raw.x,     y:    raw.y,
-          r:     raw.r || 52,
-          text:  raw.text || '',
-          ph:    raw.ph  ?? Math.random() * Math.PI * 2,
-          sp:    raw.sp  ?? .55 + Math.random() * .6,
-          vx: 0, vy: 0, tx: raw.x, ty: raw.y,
-          el: null,
-        };
-        S.nodes.push(n);
-        S.nodeMap.set(n.id, n);
-        S.adjMap.set(n.id, new Set());
-        makeBubbleEl(n);
-        resizeBubble(n);
-      });
-
-      S.conns = (data.conns || []).map(c => ({ id: c.id, a: c.a, b: c.b }));
-      S.conns.forEach(c => {
-        S.adjMap.get(c.a)?.add(c.b);
-        S.adjMap.get(c.b)?.add(c.a);
-      });
-      markConnsDirty();
-      hint.style.opacity = '0';
+      deserialize(JSON.parse(ev.target.result));
       document.getElementById('btn-fit').click();
-    } catch (err) {
-      alert('Could not import the file. The format may be incorrect.');
-      console.error(err);
-    }
+    } catch(err) { alert('Could not import the file.'); }
   };
   reader.readAsText(file);
   e.target.value = '';
@@ -1182,89 +1231,23 @@ document.getElementById('btn-clear').addEventListener('click', () => {
     S.adjMap.clear();
     _prevSelEl = null;
     markConnsDirty();
+    localStorage.removeItem(STORAGE_KEY);
     hint.style.opacity = '1';
   }, 380);
 });
 
-// ═══════════════════════════════════════
-// 공유 기능
-// ═══════════════════════════════════════
-// 공유용 직렬화: 재생성 가능한 필드(r, ph, sp, patUrl) 제외 + 배열 포맷으로 key 이름 제거
-// 포맷 v2: { v:2, n:[[id,x,y,text],...], c:[[a,b],...] }
-function serializeMap() {
-  return {
-    v: 2,
-    n: S.nodes.map(n => [n.id, Math.round(n.x), Math.round(n.y), n.text]),
-    c: S.conns.map(c => [c.a, c.b]),
-  };
-}
-
-function loadFromData(data) {
-  S.nodes.forEach(n => getEl(n.id)?.remove());
-  Object.assign(S, { nodes: [], conns: [], sel: null, drag: null, connSrc: null });
-  S.nodeMap.clear();
-  S.adjMap.clear();
-  _prevSelEl = null;
-
-  // v2 포맷 (배열) / 구버전 JSON 포맷 둘 다 지원
-  const isV2 = data.v === 2;
-  const rawNodes = isV2 ? (data.n || []).map(([id,x,y,text]) => ({id,x,y,text}))
-                        : (data.nodes || []);
-  const rawConns = isV2 ? (data.c || []).map(([a,b]) => ({a,b}))
-                        : (data.conns || []);
-
-  S.nid = isV2
-    ? (rawNodes.length ? Math.max(...rawNodes.map(n => n.id)) + 1 : 1)
-    : (data.nid || 1);
-
-  rawNodes.forEach(raw => {
-    const n = {
-      id:  raw.id,
-      x:   raw.x,   y:   raw.y,
-      r:   raw.r || calcRadius(raw.text || ''),   // 재계산
-      text: raw.text || '',
-      ph:  raw.ph  ?? Math.random() * Math.PI * 2, // 재생성
-      sp:  raw.sp  ?? .55 + Math.random() * .6,    // 재생성
-      vx: 0, vy: 0, tx: raw.x, ty: raw.y,
-      patUrl: raw.patUrl || null, el: null,         // makeBubbleEl에서 랜덤 배정
-    };
-    S.nodes.push(n);
-    S.nodeMap.set(n.id, n);
-    S.adjMap.set(n.id, new Set());
-    makeBubbleEl(n);
-    resizeBubble(n);
-  });
-
-  S.conns = rawConns.map((c, i) => ({ id: S.nid + i, a: c.a, b: c.b }));
-  S.nid += S.conns.length;
-  S.conns.forEach(c => {
-    S.adjMap.get(c.a)?.add(c.b);
-    S.adjMap.get(c.b)?.add(c.a);
-  });
-  markConnsDirty();
-  hint.style.opacity = '0';
-  document.getElementById('btn-fit').click();
-}
-
 function getShareURL() {
-  const json = JSON.stringify(serializeMap());
-  const compressed = LZString.compressToEncodedURIComponent(json);
+  const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(serialize()));
   return location.href.split('#')[0] + '#share=' + compressed;
 }
 
 function loadFromHash() {
-  const hash = location.hash;
-  if (!hash.startsWith('#share=')) return false;
+  if (!location.hash.startsWith('#share=')) return false;
   try {
-    const compressed = hash.slice(7);
-    const json = LZString.decompressFromEncodedURIComponent(compressed);
-    const data = JSON.parse(json);
-    loadFromData(data);
+    deserialize(JSON.parse(LZString.decompressFromEncodedURIComponent(location.hash.slice(7))));
+    document.getElementById('btn-fit').click();
     return true;
-  } catch (e) {
-    console.warn('공유 URL 파싱 실패:', e);
-    return false;
-  }
+  } catch(e) { return false; }
 }
 
 document.getElementById('btn-share').addEventListener('click', () => {
@@ -1288,12 +1271,14 @@ function addConn(a, b) {
   S.adjMap.get(a)?.add(b);
   S.adjMap.get(b)?.add(a);
   markConnsDirty();
+  scheduleSave();
 }
 
 applyXform();
 setTimeout(() => {
-  // URL에 공유 데이터가 있으면 그걸 로드, 없으면 기본 예시 맵 생성
+  // 우선순위: 공유 URL → 로컬스토리지 → 기본 샘플
   if (loadFromHash()) return;
+  if (loadFromLocal()) return;
 
   const c    = s2w(getVW() / 2, getVH() / 2);
   const root = addNode(c.x, c.y, 'My Ideas 🌟');
