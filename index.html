@@ -1054,9 +1054,9 @@ document.addEventListener('dblclick', e => {
 
 // ── 모바일 더블탭 ──
 let lastBgTap = 0, lastBgX = 0, lastBgY = 0;
-stage.addEventListener('pointerup', e => {
+document.addEventListener('pointerup', e => {
   if (e.pointerType !== 'touch') return;
-  if (e.target.closest('.bwrap') || e.target.closest('#ctx-menu') || e.target.closest('#conn-menu')) return;
+  if (e.target.closest('.bwrap,#ctx-menu,#conn-menu,#toolbar')) return;
   const now = Date.now();
   if (!S.pan && Math.hypot(e.clientX - lastBgX, e.clientY - lastBgY) < 12 && now - lastBgTap < 380 && lastBgTap > 0) {
     doAddAtScreen(e.clientX, e.clientY); lastBgTap = 0;
@@ -1080,8 +1080,8 @@ function startEditNode(n) {
 
 // ── 모바일 배경 롱프레스 → 연결선 삭제 ──
 let bgLongTimer = null, bgLongX = 0, bgLongY = 0;
-stage.addEventListener('pointerdown', e => {
-  if (e.pointerType !== 'touch' || e.target.closest('.bwrap')) return;
+document.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'touch' || e.target.closest('.bwrap,#toolbar')) return;
   bgLongX = e.clientX; bgLongY = e.clientY;
   bgLongTimer = setTimeout(() => {
     const wp  = s2w(bgLongX, bgLongY);
@@ -1091,11 +1091,11 @@ stage.addEventListener('pointerdown', e => {
 }, { passive: true });
 
 const clearBgLong = () => { clearTimeout(bgLongTimer); bgLongTimer = null; };
-stage.addEventListener('pointermove', e => {
+document.addEventListener('pointermove',   e => {
   if (bgLongTimer && Math.hypot(e.clientX - bgLongX, e.clientY - bgLongY) > 8) clearBgLong();
 }, { passive: true });
-stage.addEventListener('pointerup',     clearBgLong, { passive: true });
-stage.addEventListener('pointercancel', clearBgLong, { passive: true });
+document.addEventListener('pointerup',     clearBgLong, { passive: true });
+document.addEventListener('pointercancel', clearBgLong, { passive: true });
 
 // ── 휠 줌 ──
 window.addEventListener('wheel', e => {
@@ -1263,4 +1263,3 @@ if (!_restored) {
 </script>
 </body>
 </html>
-
