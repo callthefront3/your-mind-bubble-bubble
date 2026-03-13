@@ -161,7 +161,7 @@ body {
 #banner.show { opacity:1; }
 
 /* ── Zoom badge ── */
-#zbadge {
+#zbadge, #sharedbadge {
   position:fixed; top:16px; right:16px;
   font-size:12px; font-weight:800; color: var(--black);
   background: var(--white);
@@ -264,6 +264,9 @@ body {
 <div id="stage"></div>
 
 <div id="zbadge">100%</div>
+<div id="sharedbadge" style="display:none;left:50%;right:auto;transform:translateX(-50%);">
+  Viewing Shared Map
+</div>
 <div id="savebadge">💾 Saved</div>
 <div id="banner"></div>
 
@@ -353,6 +356,7 @@ const connMenu = document.getElementById('conn-menu');
 const STORAGE_KEY = 'bubblemap_autosave';
 let _saveTimer = null;
 let _saveBadgeTimer = null;
+let isSharedView = false;
 
 // 공통 직렬화/역직렬화 — 저장·내보내기·공유 모두 동일 포맷 사용
 function serialize() {
@@ -383,6 +387,7 @@ function deserialize(data) {
 }
 
 function saveToLocal() {
+  if (isSharedView) return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize()));
     showSaveBadge();
@@ -1245,6 +1250,8 @@ function loadFromHash() {
   if (!location.hash.startsWith('#share=')) return false;
   try {
     deserialize(JSON.parse(LZString.decompressFromEncodedURIComponent(location.hash.slice(7))));
+    isSharedView = true;
+    document.getElementById('sharedbadge').style.display = 'block';
     document.getElementById('btn-fit').click();
     return true;
   } catch(e) { return false; }
