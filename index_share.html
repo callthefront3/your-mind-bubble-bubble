@@ -1054,7 +1054,7 @@ function triggerSharpness() {
 let _wheelSharpTimer = null;
 
 // ── 배경 더블클릭 → 버블 추가 (터치는 pointerup에서 처리) ──
-stage.addEventListener('dblclick', e => {
+document.addEventListener('dblclick', e => {
   if (e.pointerType === 'touch') return;
   if (e.target.closest('.bwrap') || e.target.closest('#ctx-menu') || e.target.closest('#conn-menu')) return;
   doAddAtScreen(e.clientX, e.clientY);
@@ -1299,3 +1299,4 @@ setTimeout(() => {
 </script>
 </body>
 </html>
+
